@@ -124,7 +124,7 @@ and pull requests are welcome. For a console report, attach `boot-trace.log`, `c
 
 ## Licences and credits
 
-The code in this repository is under the MIT licence (see `LICENSE`); the changes to the upstream project
+The code in this repository is under the MIT licence (see `LICENSE`, and `NOTICE` for the third-party portions); the changes to the upstream project
 (`patches/wwhd-ps4.patch`) stay under MPL-2.0 like it; the new SDL files are under the zlib licence. The Maker also
 contains PkgTool rebuilt from LibOrbisPkg (maxton, LGPL-3.0), with a single change (the room for the PlayGo hashes,
 as in BOTW and SMW): `scripts/build-pkgtool.sh`.

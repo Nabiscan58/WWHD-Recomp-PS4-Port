@@ -74,6 +74,7 @@ mcs -langversion:5 -target:winexe -optimize+ -sdk:4.5 -win32icon:"$HERE/maker/ww
 cp -a "$W/sdk" "$B/sdk"
 cp "$HERE/maker/LISEZ-MOI.txt" "$HERE/maker/README.txt" "$B/"
 cp "$HERE/LICENSE" "$B/licenses/wwhd-ps4-MIT.txt"
+cp "$HERE/NOTICE" "$B/licenses/wwhd-ps4-NOTICE.txt"
 cp "$HERE/docs/LICENSE-SMW.txt" "$B/licenses/SMW-MIT.txt"
 cp "$W/src/SDL3-3.4.18/LICENSE.txt" "$B/licenses/SDL3-zlib.txt"
 cp "$W/src/glslang/LICENSE.txt" "$B/licenses/glslang.txt"

@@ -100,7 +100,7 @@ retour de console, joindre `boot-trace.log`, `captures/wwhd.log` (avec `WWHD_PRO
 
 Le Maker contient aussi PkgTool reconstruit depuis LibOrbisPkg (maxton, LGPL-3.0), avec une seule modification (la place des empreintes PlayGo, comme BOTW et SMW) : `scripts/build-pkgtool.sh`.
 
-Le code de ce dépôt est sous licence MIT (voir `LICENSE`) ; les modifications du projet d'origine
+Le code de ce dépôt est sous licence MIT (voir `LICENSE`, et `NOTICE` pour les parties tierces) ; les modifications du projet d'origine
 (`patches/wwhd-ps4.patch`) restent sous MPL-2.0 comme lui ; les nouveaux fichiers de SDL sont sous licence zlib. Merci à ZeldaWWHDRecomp (la recompilation et le runtime),
 iHaiDeeZ / ShiroKlein et BelmanteGu (SMW, SSBU : runtime PS4, WSI, SDK), Crema / DolphinPS4 (RADV sur GNM),
 OpenOrbis, LLVM, SDL, glslang, LZ4, zstd, Cemu. Projet de fans sans lien avec Nintendo ni Sony.
