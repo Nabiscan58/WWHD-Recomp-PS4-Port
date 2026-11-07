@@ -88,7 +88,7 @@ mkdir -p "$B/maker/pkgtool"
 cp "$W/pkgtool-fixed/"{PkgTool.Core.dll,LibOrbisPkg.Core.dll,PkgTool.Core.runtimeconfig.json,PkgTool.Core.deps.json} "$B/maker/pkgtool/"
 cp "$W/pkgtool-fixed/LICENSE-LibOrbisPkg.txt" "$B/licenses/LibOrbisPkg-LGPL-3.0.txt"
 # PERSO=<folder>: icon0.png and pic1.png of one player's own (perso\ in the Maker's folder, see the Maker)
-if [ -n "${PERSO:-}" ]; then mkdir -p "$B/perso" && cp "$PERSO/icon0.png" "$PERSO/pic1.png" "$B/perso/"; fi
+if [ -n "${PERSO:-}" ]; then mkdir -p "$B/perso" && cp "$PERSO/icon0.png" "$PERSO/pic1.png" "$B/perso/"; [ -f "$PERSO/CREDITS.txt" ] && cp "$PERSO/CREDITS.txt" "$B/perso/"; fi
 (cd "$W/bundle" && zip -qr -9 "$Z" "WWHD-PS4-Maker-$VERSION")
 ls -la "$Z"
 sha256sum "$Z"
