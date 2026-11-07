@@ -33,6 +33,7 @@ class Worker {
         psi.EnvironmentVariables.Remove("PYTHONHOME");
         psi.EnvironmentVariables.Remove("PYTHONPATH");
         psi.EnvironmentVariables["PYTHONUTF8"] = "1";
+        psi.EnvironmentVariables["WWHD_LANG"] = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
         psi.EnvironmentVariables["PYTHONUNBUFFERED"] = "1";
         proc = new Process();
         proc.StartInfo = psi;
@@ -60,6 +61,9 @@ class Worker {
 }
 
 class MakerForm : Form {
+    // French when Windows is in French, English everywhere else.
+    static readonly bool fr = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "fr";
+    static string L(string french, string english) { return fr ? french : english; }
     readonly string root = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
     readonly Dictionary<string, TextBox> rows = new Dictionary<string, TextBox>();
     readonly List<Control> inputs = new List<Control>();
@@ -75,32 +79,35 @@ class MakerForm : Form {
 
     public MakerForm() {
         settings = Path.Combine(root, "maker.ini");
-        Text = "WWHD-PS4 Maker - The Wind Waker HD pour PS4 (GoldHEN)";
+        Text = L("WWHD-PS4 Maker - The Wind Waker HD pour PS4 (GoldHEN)", "WWHD-PS4 Maker - The Wind Waker HD for PS4 (GoldHEN)");
         Font = new Font("Segoe UI", 9f);
         ClientSize = new Size(760, 640);
         MinimumSize = new Size(700, 560);
         try { Icon = Icon.ExtractAssociatedIcon(System.Reflection.Assembly.GetExecutingAssembly().Location); } catch {}
 
         var intro = new Label();
-        intro.Text = "Crée ton propre paquet PS4 du jeu à partir de TON jeu Wii U (image .wud/.wux et ses clés, archive " +
+        intro.Text = L("Crée ton propre paquet PS4 du jeu à partir de TON jeu Wii U (image .wud/.wux et ses clés, archive " +
                      "Cemu .wua, ou dossier extrait avec code, content et meta). Le paquet contient le jeu : ne le " +
-                     "partage jamais.";
+                     "partage jamais.",
+                     "Builds your own PS4 package of the game from YOUR Wii U game (.wud/.wux image and its keys, Cemu " +
+                     ".wua archive, or an extracted folder with code, content and meta). The package contains the game: " +
+                     "never share it.");
         intro.SetBounds(12, 10, 736, 36);
         intro.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         Controls.Add(intro);
 
         int y = 52;
-        AddRow("game", "Jeu (image, archive ou dossier)", ref y, true, true);
-        AddRow("disckey", "Clé du disque (.key, facultatif)", ref y, true, false);
-        AddRow("commonkey", "Clé commune Wii U (common.key ou keys.txt)", ref y, true, false);
-        AddRow("out", "Dossier de sortie", ref y, false, true);
+        AddRow("game", L("Jeu (image, archive ou dossier)", "Game (image, archive or folder)"), ref y, true, true);
+        AddRow("disckey", L("Clé du disque (.key, facultatif)", "Disc key (.key, optional)"), ref y, true, false);
+        AddRow("commonkey", L("Clé commune Wii U (common.key ou keys.txt)", "Wii U common key (common.key or keys.txt)"), ref y, true, false);
+        AddRow("out", L("Dossier de sortie", "Output folder"), ref y, false, true);
 
         inPkg = new RadioButton();
-        inPkg.Text = "Fichiers du jeu dans le paquet (un seul .pkg, recommandé)";
+        inPkg.Text = L("Fichiers du jeu dans le paquet (un seul .pkg, recommandé)", "Game files in the package (one .pkg, recommended)");
         inPkg.SetBounds(12, y, 400, 22);
         inPkg.Checked = true;
         viaFtp = new RadioButton();
-        viaFtp.Text = "Fichiers du jeu par FTP dans /data/WWHD/game";
+        viaFtp.Text = L("Fichiers du jeu par FTP dans /data/WWHD/game", "Game files over FTP into /data/WWHD/game");
         viaFtp.SetBounds(420, y, 330, 22);
         Controls.Add(inPkg);
         Controls.Add(viaFtp);
@@ -109,7 +116,7 @@ class MakerForm : Form {
         y += 28;
 
         var fl = new Label();
-        fl.Text = "FTP de la PS4 (GoldHEN, facultatif)";
+        fl.Text = L("FTP de la PS4 (GoldHEN, facultatif)", "PS4 FTP (GoldHEN, optional)");
         fl.SetBounds(12, y + 3, 220, 20);
         Controls.Add(fl);
         ftp = new TextBox();
@@ -117,30 +124,30 @@ class MakerForm : Form {
         Controls.Add(ftp);
         inputs.Add(ftp);
         var fh = new Label();
-        fh.Text = "ex. 192.168.1.20:2121";
+        fh.Text = L("ex. 192.168.1.20:2121", "e.g. 192.168.1.20:2121");
         fh.ForeColor = Color.Gray;
         fh.SetBounds(444, y + 3, 200, 20);
         Controls.Add(fh);
         y += 34;
 
         start = new Button();
-        start.Text = "Démarrer";
+        start.Text = L("Démarrer", "Start");
         start.SetBounds(12, y, 120, 30);
         start.Click += (s, e) => Run(false);
         uploadOnly = new Button();
-        uploadOnly.Text = "Envoyer seulement";
+        uploadOnly.Text = L("Envoyer seulement", "Upload only");
         uploadOnly.SetBounds(140, y, 140, 30);
         uploadOnly.Click += (s, e) => Run(true);
         cancel = new Button();
-        cancel.Text = "Annuler";
+        cancel.Text = L("Annuler", "Cancel");
         cancel.SetBounds(288, y, 100, 30);
         cancel.Enabled = false;
-        cancel.Click += (s, e) => { worker.Cancel(); Append("annulé"); };
+        cancel.Click += (s, e) => { worker.Cancel(); Append(L("annulé", "cancelled")); };
         Controls.Add(start);
         Controls.Add(uploadOnly);
         Controls.Add(cancel);
         fresh = new CheckBox();
-        fresh.Text = "Tout recommencer (sinon le travail déjà fait est repris)";
+        fresh.Text = L("Tout recommencer (sinon le travail déjà fait est repris)", "Start over (otherwise the work already done is reused)");
         fresh.SetBounds(400, y + 5, 350, 22);
         Controls.Add(fresh);
         inputs.Add(fresh);
@@ -180,7 +187,7 @@ class MakerForm : Form {
         timer.Tick += (s, e) => Pump();
         timer.Start();
         FormClosing += (s, e) => {
-            if (worker.Running && MessageBox.Show(this, "Le travail en cours sera arrêté. Fermer quand même ?",
+            if (worker.Running && MessageBox.Show(this, L("Le travail en cours sera arrêté. Fermer quand même ?", "The work in progress will be stopped. Close anyway?"),
                     Text, MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) {
                 e.Cancel = true;
                 return;
@@ -204,7 +211,7 @@ class MakerForm : Form {
         int x = folder && file ? 602 : 672;
         if (file) {
             var b = new Button();
-            b.Text = "Fichier...";
+            b.Text = L("Fichier...", "File...");
             b.SetBounds(x, y - 1, 70, 25);
             b.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             b.Click += (s, e) => PickFile(key);
@@ -214,7 +221,7 @@ class MakerForm : Form {
         }
         if (folder) {
             var b = new Button();
-            b.Text = "Dossier...";
+            b.Text = L("Dossier...", "Folder...");
             b.SetBounds(x, y - 1, 70, 25);
             b.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             b.Click += (s, e) => PickFolder(key);
@@ -226,8 +233,8 @@ class MakerForm : Form {
 
     void PickFile(string key) {
         var d = new OpenFileDialog();
-        d.Filter = key == "game" ? "Jeu Wii U (*.wud;*.wux;*.wua)|*.wud;*.wux;*.wua|Tous les fichiers|*.*"
-                                 : "Clés (*.key;*.txt;*.bin)|*.key;*.txt;*.bin|Tous les fichiers|*.*";
+        d.Filter = key == "game" ? L("Jeu Wii U (*.wud;*.wux;*.wua)|*.wud;*.wux;*.wua|Tous les fichiers|*.*", "Wii U game (*.wud;*.wux;*.wua)|*.wud;*.wux;*.wua|All files|*.*")
+                                 : L("Clés (*.key;*.txt;*.bin)|*.key;*.txt;*.bin|Tous les fichiers|*.*", "Keys (*.key;*.txt;*.bin)|*.key;*.txt;*.bin|All files|*.*");
         if (d.ShowDialog(this) != DialogResult.OK) return;
         rows[key].Text = d.FileName;
         if (key == "game") GuessKeys(d.FileName);
@@ -235,7 +242,7 @@ class MakerForm : Form {
 
     void PickFolder(string key) {
         var d = new FolderBrowserDialog();
-        d.Description = key == "game" ? "Le dossier du jeu extrait (avec code, content et meta)" : "Le dossier de sortie";
+        d.Description = key == "game" ? L("Le dossier du jeu extrait (avec code, content et meta)", "The extracted game folder (with code, content and meta)") : L("Le dossier de sortie", "The output folder");
         if (d.ShowDialog(this) == DialogResult.OK) rows[key].Text = d.SelectedPath;
     }
 
@@ -256,19 +263,19 @@ class MakerForm : Form {
         string python = Path.Combine(root, "tools", "python", "python.exe");
         string script = Path.Combine(root, "maker", "wwhd_ps4_maker.py");
         if (!File.Exists(python) || !File.Exists(script)) {
-            MessageBox.Show(this, "tools\\python\\python.exe ou maker\\wwhd_ps4_maker.py manque : décompresse le Maker à nouveau.",
+            MessageBox.Show(this, L("tools\\python\\python.exe ou maker\\wwhd_ps4_maker.py manque : décompresse le Maker à nouveau.", "tools\\python\\python.exe or maker\\wwhd_ps4_maker.py is missing: unpack the Maker again."),
                             Text, MessageBoxButtons.OK, MessageBoxIcon.Error);
             return;
         }
         string outDir = rows["out"].Text.Trim();
-        if (outDir.Length == 0) { MessageBox.Show(this, "Choisis un dossier de sortie.", Text); return; }
+        if (outDir.Length == 0) { MessageBox.Show(this, L("Choisis un dossier de sortie.", "Choose an output folder."), Text); return; }
         var a = new StringBuilder("-u " + Q(script) + " --out " + Q(outDir));
         if (uploadOnlyMode) {
-            if (ftp.Text.Trim().Length == 0) { MessageBox.Show(this, "Indique l'adresse FTP de la PS4.", Text); return; }
+            if (ftp.Text.Trim().Length == 0) { MessageBox.Show(this, L("Indique l'adresse FTP de la PS4.", "Enter the PS4's FTP address."), Text); return; }
             a.Append(" --upload-only");
         } else {
             string game = rows["game"].Text.Trim();
-            if (game.Length == 0) { MessageBox.Show(this, "Choisis ton jeu (image, archive ou dossier).", Text); return; }
+            if (game.Length == 0) { MessageBox.Show(this, L("Choisis ton jeu (image, archive ou dossier).", "Choose your game (image, archive or folder)."), Text); return; }
             a.Append(" --game " + Q(game));
             if (rows["disckey"].Text.Trim().Length > 0) a.Append(" --disc-key " + Q(rows["disckey"].Text.Trim()));
             if (rows["commonkey"].Text.Trim().Length > 0) a.Append(" --common-key " + Q(rows["commonkey"].Text.Trim()));
@@ -312,7 +319,7 @@ class MakerForm : Form {
         while (n++ < 400 && worker.Lines.TryDequeue(out line)) {
             Match m = StepRe.Match(line);
             if (m.Success) {
-                stepLabel.Text = "Étape " + m.Groups[1].Value + " sur " + m.Groups[2].Value + " : " + m.Groups[3].Value;
+                stepLabel.Text = L("Étape ", "Step ") + m.Groups[1].Value + L(" sur ", " of ") + m.Groups[2].Value + " : " + m.Groups[3].Value;
                 Marquee(false);
                 bar.Value = 0;
                 detail.Text = "";
@@ -341,10 +348,10 @@ class MakerForm : Form {
             Marquee(false);
             if (worker.ExitCode == 0) {
                 bar.Value = 100;
-                stepLabel.Text = "Terminé";
-                detail.Text = "Installe le .pkg avec le Package Installer de GoldHEN.";
+                stepLabel.Text = L("Terminé", "Done");
+                detail.Text = L("Installe le .pkg avec le Package Installer de GoldHEN.", "Install the .pkg with GoldHEN's Package Installer.");
             } else {
-                stepLabel.Text = "Arrêté (voir le journal)";
+                stepLabel.Text = L("Arrêté (voir le journal)", "Stopped (see the log)");
             }
         }
     }

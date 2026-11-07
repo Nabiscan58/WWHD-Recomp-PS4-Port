@@ -72,7 +72,7 @@ cp -a "$HERE/maker/sce_sys" "$B/maker/sce_sys"
 mcs -langversion:5 -target:winexe -optimize+ -sdk:4.5 -win32icon:"$HERE/maker/wwhd-ps4-maker.ico" \
     -r:System.dll -r:System.Drawing.dll -r:System.Windows.Forms.dll -out:"$B/WWHD-PS4-Maker.exe" "$HERE/maker/WWHD-PS4-Maker.cs"
 cp -a "$W/sdk" "$B/sdk"
-cp "$HERE/maker/LISEZ-MOI.txt" "$B/"
+cp "$HERE/maker/LISEZ-MOI.txt" "$HERE/maker/README.txt" "$B/"
 cp "$HERE/LICENSE" "$B/licenses/wwhd-ps4-MIT.txt"
 cp "$HERE/docs/LICENSE-SMW.txt" "$B/licenses/SMW-MIT.txt"
 cp "$W/src/SDL3-3.4.18/LICENSE.txt" "$B/licenses/SDL3-zlib.txt"

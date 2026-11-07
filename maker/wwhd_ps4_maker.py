@@ -75,6 +75,15 @@ def say(text=""):
         print(text, flush=True)
 
 
+# The window passes WWHD_LANG=fr when Windows is in French; the detail lines and step titles follow it. The log
+# itself stays in English (easier to share in bug reports).
+FR = os.environ.get("WWHD_LANG", "") == "fr"
+
+
+def T(french, english):
+    return french if FR else english
+
+
 def step(n, total, title):
     say("")
     say("== %d/%d %s" % (n, total, title))
@@ -195,7 +204,7 @@ def fetch(url, dst, label, check):
                         done += len(b)
                         deadline = None  # data flows again
                         if time.time() - last > 0.5:
-                            progress(done, total or done, "downloading " + label)
+                            progress(done, total or done, T("téléchargement de ", "downloading ") + label)
                             last = time.time()
                 if total and done < total:  # the connection ended early without an error
                     raise ConnectionError("cut at %s of %s" % (human(done), human(total)))
@@ -211,7 +220,7 @@ def fetch(url, dst, label, check):
                 raise MakerError("cannot download %s (%s): no connection for %d minutes. Start again when the "
                                  "connection is back: the work already done is kept." % (label, e, WAIT_FOR_NETWORK // 60))
             say("  connection problem (%s): waiting for it to come back, trying again in 20 s" % e)
-            status("En attente de la connexion Internet (%s) : le travail fait est gardé" % label)
+            status(T("En attente de la connexion Internet (%s) : le travail fait est gardé", "Waiting for the Internet connection (%s): the work done is kept") % label)
             time.sleep(20)
     problem = check(tmp)
     if problem:
@@ -595,7 +604,7 @@ def compile_gamecode(tools, man, gen, obj_dir, jobs):
             if rc != 0:
                 failures.append((src, out))
             done[0] += 1
-            progress(done[0], len(srcs), "compiling the game code")
+            progress(done[0], len(srcs), T("compilation du code du jeu", "compiling the game code"))
         return obj
 
     with ThreadPoolExecutor(max_workers=jobs) as ex:
@@ -788,7 +797,7 @@ def make_pkg(tools, stage, out_dir, version, name_version):
     tmp_out = os.path.join(out_dir, "pkgtool")
     shutil.rmtree(tmp_out, ignore_errors=True)
     os.makedirs(tmp_out)
-    with Busy("PkgTool construit le paquet", "plusieurs minutes pour quelques Go, pas de pourcentage"):
+    with Busy(T("PkgTool construit le paquet", "PkgTool is building the package"), T("plusieurs minutes pour quelques Go, pas de pourcentage", "several minutes for a few GB, no percentage")):
         run(pk + ["pkg_build", "pkg.gp4", fwd(tmp_out)], cwd=stage, env=env, quiet=True, what="PkgTool pkg_build")
     os.remove(gp4)
     built = os.path.join(tmp_out, content_id + ".pkg")
@@ -820,7 +829,7 @@ def stage_package(tools, stage, game_dir, data_in_pkg):
     with open(os.path.join(stage, "version.txt"), "w") as f:
         f.write(manifest()["version"] + "\n")
     if data_in_pkg:
-        copy_tree(game_dir, os.path.join(stage, "game"), "putting the game files in the package")
+        copy_tree(game_dir, os.path.join(stage, "game"), T("copie des fichiers du jeu dans le paquet", "putting the game files in the package"))
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -868,7 +877,7 @@ def upload(addr, pkg, game_dir):
     f = ftp_connect(addr)
     try:
         ftp_mkdirs(f, "/data/pkg")
-        ftp_put(f, pkg, "/data/pkg/" + os.path.basename(pkg), "sending the package")
+        ftp_put(f, pkg, "/data/pkg/" + os.path.basename(pkg), T("envoi du paquet", "sending the package"))
         say("  package sent to /data/pkg/%s" % os.path.basename(pkg))
         ftp_mkdirs(f, "/data/WWHD")
         env_txt = os.path.join(os.path.dirname(pkg), "env.txt")
@@ -883,9 +892,9 @@ def upload(addr, pkg, game_dir):
                 rel = os.path.relpath(local, game_dir).replace("\\", "/")
                 remote = "/data/WWHD/game/" + rel
                 ftp_mkdirs(f, os.path.dirname(remote))
-                ftp_put(f, local, remote, "sending the game files")
+                ftp_put(f, local, remote, T("envoi des fichiers du jeu", "sending the game files"))
                 if i % 50 == 0 or i == len(files) - 1:
-                    progress(i + 1, len(files), "sending the game files")
+                    progress(i + 1, len(files), T("envoi des fichiers du jeu", "sending the game files"))
             say("  game files sent to /data/WWHD/game")
     finally:
         try:
@@ -918,7 +927,7 @@ def main():
     try:
         tools = Tools()
         if args.check:
-            step(1, 1, "Tools")
+            step(1, 1, T("Outils", "Tools"))
             tools.ensure()
             return 0
         if not args.out:
@@ -937,7 +946,7 @@ def main():
             if not os.path.isfile(pkg):
                 raise MakerError("no %s: build it first" % pkg)
             gd = os.path.join(work, "game") if args.data == "ftp" else None
-            step(1, 1, "Sending to the PS4")
+            step(1, 1, T("Envoi vers la PS4", "Sending to the PS4"))
             upload(args.ftp, pkg, gd if gd and os.path.isdir(gd) else None)
             return 0
         if not args.game and not args.gen_dir:
@@ -948,13 +957,13 @@ def main():
         if free_space(work) < need:
             raise MakerError("not enough free space for the work folder %s (%s needed)" % (work, human(need)))
 
-        step(1, total, "Tools")
+        step(1, total, T("Outils", "Tools"))
         tools.ensure()
         man = manifest()
         ws = upstream_setup()
         ws.LOG.open(os.path.join(work, "setup.log"))  # upstream's own log (extraction, translation)
 
-        step(2, total, "The game files")
+        step(2, total, T("Les fichiers du jeu", "The game files"))
         if args.fresh:
             for d in ("game", "gen", "obj"):
                 shutil.rmtree(os.path.join(work, d), ignore_errors=True)
@@ -968,7 +977,7 @@ def main():
         else:
             game_dir = prepare_game(ws, args, work)
 
-        step(3, total, "Translating the game code (PowerPC to C)")
+        step(3, total, T("Traduction du code du jeu (PowerPC vers C)", "Translating the game code (PowerPC to C)"))
         if args.gen_dir:
             gen = os.path.abspath(args.gen_dir)
         else:
@@ -987,13 +996,13 @@ def main():
                 if os.path.isfile(gen_mark):
                     os.remove(gen_mark)
                 t0 = time.time()
-                with Busy("Traduction du code du jeu", "pas de pourcentage pour cette étape, de 10 à 40 min sur un PC lent"):
+                with Busy(T("Traduction du code du jeu", "Translating the game code"), T("pas de pourcentage pour cette étape, de 10 à 40 min sur un PC lent", "no percentage for this step, 10 to 40 min on a slow PC")):
                     n = ws.recompile(game_dir, gen)
                 with open(gen_mark, "w", encoding="utf-8") as f:
                     f.write(me)
                 say("  %d source files (%d min)" % (n, (time.time() - t0) // 60))
 
-        step(4, total, "Compiling for the PS4 (this is the long part)")
+        step(4, total, T("Compilation pour la PS4 (la partie longue)", "Compiling for the PS4 (this is the long part)"))
         obj_dir = os.path.join(work, "obj")
         obj_mark = os.path.join(obj_dir, "flags.txt")
         headers = gamecode_headers_digest()
@@ -1019,17 +1028,17 @@ def main():
         t0 = time.time()
         objs = compile_gamecode(tools, man, gen, obj_dir, args.jobs or default_jobs())
         say("  compiled in %d min" % ((time.time() - t0) // 60))
-        with Busy("Édition des liens", "quelques minutes, pas de pourcentage"):
+        with Busy(T("Édition des liens", "Linking"), T("quelques minutes, pas de pourcentage", "a few minutes, no percentage")):
             elf = link(tools, man, objs, work)
         stage = os.path.join(work, "stage")
         shutil.rmtree(stage, ignore_errors=True)
         os.makedirs(stage)
-        with Busy("Création de eboot.bin"):
+        with Busy(T("Création de eboot.bin", "Making eboot.bin")):
             make_eboot(tools, man, elf, stage, work)
         shutil.copy2(elf, os.path.join(out, "wwhd.elf"))  # for symbolizing crash.log (llvm-symbolizer --obj)
         write_symbols(elf, os.path.join(out, "wwhd-symbols.txt"))
 
-        step(5, total, "The package")
+        step(5, total, T("Le paquet", "The package"))
         in_pkg = args.data == "in-pkg" and game_dir is not None
         stage_package(tools, stage, game_dir, in_pkg)
         need = (folder_size(game_dir) if in_pkg else 0) + (1 << 30)
@@ -1067,7 +1076,7 @@ def main():
                 "%s there yourself)" % game_dir)
 
         if args.ftp:
-            step(6, total, "Sending to the PS4")
+            step(6, total, T("Envoi vers la PS4", "Sending to the PS4"))
             upload(args.ftp, pkg, None if in_pkg else game_dir)
         say("")
         say("done: install %s with GoldHEN's Package Installer (/data/pkg) and start %s from the home screen."

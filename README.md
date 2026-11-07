@@ -1,107 +1,134 @@
-# wwhd-ps4 — The Wind Waker HD (Wii U) sur PS4 (GoldHEN)
+# wwhd-ps4 — The Wind Waker HD (Wii U) on PS4 (GoldHEN)
 
-Portage PS4 de [Wind Waker HD Recomp](https://github.com/ZeldaWWHDRecomp/ZeldaWWHDRecomp) (la recompilation statique
-du jeu Wii U : code PowerPC traduit en C, GX2 réimplémenté sur Vulkan), sur le modèle des portages PS4 de
-[SMW](https://github.com/iHaiDeeZ/SMW) et [SSBU](https://github.com/iHaiDeeZ/SSBU) : pas d'émulateur, le code du jeu
-est compilé pour le processeur Jaguar de la PS4 et dessiné avec le pilote Vulkan RADV de Mesa porté sur le GPU de la
-PS4.
+*[Version française](README.fr.md)*
 
-**Aucun jeu, aucun code du jeu, aucune clé ici.** Le paquet se fabrique sur ton PC à partir de ta propre copie.
+A PS4 port of [Wind Waker HD Recomp](https://github.com/ZeldaWWHDRecomp/ZeldaWWHDRecomp) (the static recompilation
+of the Wii U game: PowerPC code translated to C, GX2 reimplemented on Vulkan), modelled on the PS4 ports of
+[SMW](https://github.com/iHaiDeeZ/SMW) and [SSBU](https://github.com/iHaiDeeZ/SSBU): no emulator, the game code is
+compiled for the PS4's Jaguar CPU and drawn with Mesa's RADV Vulkan driver ported to the PS4 GPU.
 
-> **État (0.1.12) : le jeu démarre et se joue sur une PS4 Slim (GoldHEN), mais lentement : 14 à 16 images/s en jeu.**
-> Le goulot est le processeur Jaguar (préparation des commandes graphiques sur un seul cœur), pas le GPU. Tout ce qui
-> a été trouvé, mesuré et essayé, et les pistes pour aller plus loin : [`docs/ETAT.md`](docs/ETAT.md). Les
-> contributions sont bienvenues.
+**No game, no game code and no keys here.** The package is built on your PC from your own copy of the game.
 
-**English:** a PS4 (GoldHEN) port of Wind Waker HD Recomp. A Windows tool (the Maker) builds a `.pkg` from your own
-copy of the game. It boots and plays on a PS4 Slim at 14-16 fps in game; the bottleneck is the Jaguar CPU (one core
-preparing ~3,500 draws a frame), not the GPU. See [`docs/STATUS.md`](docs/STATUS.md) for the findings and where help
-is needed.
+> **Status (0.1.13, same engine as 0.1.12): the game boots and plays on a PS4 Slim (GoldHEN), but slowly: 14 to 16 fps in game.**
+> The bottleneck is the Jaguar CPU (preparing the graphics commands on a single core), not the GPU. Everything that
+> was found, measured and tried, and the leads for going further: [`docs/STATUS.md`](docs/STATUS.md).
+> Contributions are welcome.
 
-## Pour jouer : WWHD-PS4 Maker (Windows)
+## Playing: WWHD-PS4 Maker (Windows)
 
-Le zip `WWHD-PS4-Maker-<version>.zip` contient un programme Windows qui fait tout (voir `maker/LISEZ-MOI.txt`) :
+The `WWHD-PS4-Maker-<version>.zip` file, from the
+[Releases](https://github.com/Nabiscan58/WWHD-Recomp-PS4-Port/releases) page, contains a Windows program that does
+everything (see `maker/README.txt`). Its window is in French when Windows is in French, in English otherwise.
 
-1. **Outils** — au premier lancement il télécharge (SHA-256 vérifiés, dans `tools\`) LLVM 21.1.8, la toolchain
-   OpenOrbis v0.5.2 et le SDK PS4 de SMW (RADV + libc++ 21) ; et si aucun .NET n'est installé, le runtime .NET 8
-   portable de Microsoft pour PkgTool, dès cette étape. Téléchargements repris après une coupure (Range), avec
-   attente du retour de la connexion (45 min).
-2. **Fichiers du jeu** — extraits de ton image `.wud`/`.wux` (avec ses clés) ou archive Cemu `.wua` par l'extracteur
-   du projet d'origine (`wwhd-extract`), ou ton dossier extrait tel quel. Version 0 USA ou Europe, vérifiée par
-   SHA-256 (le code de setup d'origine).
-3. **Traduction** — `tools/recomp/recomp.py` du projet d'origine : PowerPC → C.
-4. **Compilation PS4** — clang 21 `--target=x86_64-pc-freebsd12-elf -march=btver2`, mêmes options que le runtime ;
-   édition de liens avec le runtime PS4 précompilé (`sdk/`) et RADV, puis `create-fself` → `eboot.bin`.
-5. **Paquet** — `param.sfo`, icônes (art original), modules système, et par défaut les fichiers du jeu dans
-   `/app0/game` ; projet GP4 écrit par le Maker, `PkgTool pkg_build` → `WWHD-PS4-<version>.pkg`.
-6. **FTP (option)** — le `.pkg` dans `/data/pkg` (serveur FTP de GoldHEN), et en mode « fichiers par FTP » le jeu dans
-   `/data/WWHD/game`.
+1. **Tools** — on first launch it downloads (SHA-256 checked, into `tools\`) LLVM 21.1.8, the OpenOrbis v0.5.2
+   toolchain and SMW's PS4 SDK (RADV + libc++ 21); and, if no .NET is installed, Microsoft's portable .NET 8 runtime
+   for PkgTool, right at this step. Downloads resume after a drop (HTTP Range) and wait for the connection to come
+   back (up to 45 min).
+2. **Game files** — extracted from your `.wud`/`.wux` image (with its keys) or Cemu `.wua` archive by the upstream
+   project's extractor (`wwhd-extract`), or your already extracted folder as is. Version 0, USA or Europe, checked by
+   SHA-256 (upstream's setup code).
+3. **Translation** — upstream's `tools/recomp/recomp.py`: PowerPC → C.
+4. **PS4 compilation** — clang 21 `--target=x86_64-pc-freebsd12-elf -march=btver2`, same options as the runtime;
+   linked with the prebuilt PS4 runtime (`sdk/`) and RADV, then `create-fself` → `eboot.bin`.
+5. **Package** — `param.sfo`, icons (original art), system modules, and by default the game files in `/app0/game`;
+   GP4 project written by the Maker, `PkgTool pkg_build` → `WWHD-PS4-<version>.pkg`.
+6. **FTP (optional)** — the `.pkg` into `/data/pkg` (GoldHEN's FTP server), and in "game files over FTP" mode the
+   game into `/data/WWHD/game`.
 
-Ligne de commande équivalente : `tools\python\python.exe maker\wwhd_ps4_maker.py --game <image|archive|dossier>
-[--disc-key F] [--common-key F] --out <dossier> [--data in-pkg|ftp] [--ftp IP:2121]`.
+Equivalent command line: `tools\python\python.exe maker\wwhd_ps4_maker.py --game <image|archive|folder>
+[--disc-key F] [--common-key F] --out <folder> [--data in-pkg|ftp] [--ftp IP:2121] [--fresh]`.
 
-## Comment le portage fonctionne
+If the Maker stops (error, network drop, window closed), run it again with the same output folder: the extracted
+game, the translated code and the compiled files are reused.
 
-| | PC (projet d'origine) | PS4 (ce dépôt) |
+## How the port works
+
+| | PC (upstream) | PS4 (this repository) |
 |---|---|---|
-| Code du jeu | PowerPC → C, clang | idem, clang 21 pour Jaguar (`-march=btver2`, sans contraction FMA) |
-| Mémoire invitée | fenêtre de 4 Gio à `0x2000_0000_0000` | fenêtre de 4 Gio à `0x30_0000_0000` (sous la zone `0x40_0000_0000` que RADV réserve pour le GPU), **réservée** ; des blocs de 64 Kio de mémoire directe sont mappés au premier accès (gestionnaire SIGSEGV, `port/ps4_memory.cpp`, d'après SMW) ; pré-mappage avant les lectures noyau (`read()` dans la mémoire invitée) et avant la protection en écriture (suivi des textures) |
-| Piles des threads invités | 64 Mio | 64 Mio d'espace d'adresses, mappés à l'usage (même mécanisme), 1 Mio pré-mappé |
-| Fenêtre, manettes, son | SDL3 | SDL 3.4.18 avec **pilotes PS4 écrits pour ce projet** (`patches/sdl3-3.4.18-ps4.patch`) : vidéo « ps4 » (1920×1080, Vulkan via `VK_EXT_headless_surface`), manettes ScePad (DualShock 4 annoncée comme telle, gyro, accéléromètre, pavé tactile, vibration, barre lumineuse, jusqu'à 4 joueurs), son sceAudioOut (48 kHz, flottant stéréo) |
-| Vulkan | chargeur système | RADV (Mesa, winsys GNM de Crema) lié statiquement + WSI VideoOut (`port/ps4_vk_wsi.cpp`, de SSBU/SMW ; ici avec un format sRGB pour l'image finale) |
-| Tas, threads, plantages | système | runtime PS4 de SMW (`port/`) : dlmalloc, crt1 avec table de remplacement de malloc, pthread sur les 6 cœurs, journal de démarrage et de plantage |
-| Données | dossier du jeu | `/data/WWHD` (sauvegardes, réglages, caches, journaux, `env.txt`) ; jeu dans `/app0/game` ou `/data/WWHD/game` |
+| Game code | PowerPC → C, clang | same, clang 21 for Jaguar (`-march=btver2`, no FMA contraction) |
+| Guest memory | 4 GiB window at `0x2000_0000_0000` | 4 GiB window at `0x30_0000_0000` (below the `0x40_0000_0000` range RADV reserves for the GPU), **reserved**; 64 KiB blocks of direct memory are mapped on first access (SIGSEGV handler, `port/ps4_memory.cpp`, after SMW); pre-mapped before kernel reads (`read()` into guest memory) and before write protection (texture tracking) |
+| Guest thread stacks | 64 MiB | 64 MiB of address space, mapped on use (same mechanism), 1 MiB pre-mapped |
+| Window, pads, sound | SDL3 | SDL 3.4.18 with **PS4 drivers written for this project** (`patches/sdl3-3.4.18-ps4.patch`): "ps4" video (1920×1080, Vulkan through `VK_EXT_headless_surface`), ScePad gamepads (DualShock 4 reported as such, gyro, accelerometer, touchpad, rumble, light bar, up to 4 players), sceAudioOut sound (48 kHz, float stereo) |
+| Vulkan | system loader | RADV (Mesa, Crema's GNM winsys) linked statically + VideoOut WSI (`port/ps4_vk_wsi.cpp`, from SSBU/SMW; here with an sRGB format for the final image) |
+| Heap, threads, crashes | system | SMW's PS4 runtime (`port/`): dlmalloc, crt1 with a malloc replacement table, pthreads on all cores, boot and crash logs |
+| Data | game folder | `/data/WWHD` (saves, settings, caches, logs, `env.txt`); game in `/app0/game` or `/data/WWHD/game` |
 
-Changements dans le projet d'origine (`patches/wwhd-ps4.patch`, sur le commit de `patches/BASE.txt`) : base de la
-fenêtre invitée, réservation paresseuse, taille de page 16 Kio, pré-mappage du suivi d'écriture, piles paresseuses,
-démarrage PS4 (`wwhd_ps4_startup`), rapport de plantage enchaîné à celui du port, adresses de plantage en adresses ELF,
-branche CMake `PS4`.
+Changes to the upstream project (`patches/wwhd-ps4.patch`, on the commit in `patches/BASE.txt`): guest window base,
+lazy reservation, 16 KiB page size, pre-mapping for write tracking, lazy stacks, PS4 start-up (`wwhd_ps4_startup`),
+crash report chained to the port's, crash addresses as ELF addresses, absolute save/crash paths, `PS4` CMake branch,
+`PS4_LTO` option, cached upload arena option.
 
-Contrôles : Croix/Rond/Carré/Triangle = A/B/X/Y (réglable dans les Réglages du jeu), clic du pavé tactile = « − »,
-**L3 + R3 = Home** (ouvre les Réglages du portage : la PS4 ne donne pas le bouton PS aux applications).
+Controls: Cross/Circle/Square/Triangle = A/B/X/Y (configurable in the game's Settings), touchpad click = "−",
+**L3 + R3 = Home** (opens the port's Settings: the PS4 does not give the PS button to applications).
 
-### Optimisation à l'édition des liens (0.1.11)
+### Things that matter on PS4 (learned the hard way)
 
-Le C++ du runtime (hors `port/`, hors code du jeu, hors bibliothèques) est compilé en bitcode ThinLTO (option
-`PS4_LTO` du CMakeLists patché). `scripts/make-sdk.py` en fait un seul objet natif, `sdk/obj/runtime-lto.o`, avec
-`ld.lld -r --lto-O3` : l'optimisation entre fichiers (inlining entre `gx2/` et `gfx/vulkan/`, où le thread de rendu
-passe son temps) est faite une fois au build du SDK, et l'édition des liens du Maker reste aussi rapide qu'avant.
-Vérifié : tous les appels à malloc/free/calloc, pthread_create, clock_gettime et mmap du runtime passent toujours par
-les `--wrap` de `port/ps4_runtime.cpp`.
+- **Package identity:** Vulkan on GNM needs the "plain" homebrew `param.sfo` (`APP_TYPE 1`, `CATEGORY gd`,
+  `ATTRIBUTE 2`, no `right.sprx`), as in SMW, SSBU, BOTW and TOTK. With RetroArch's identity (`CATEGORY gde`, an
+  application, meant for OpenGL/Piglet), RADV's first GPU-visible `sceKernelMapDirectMemory` never returns and the
+  console freezes.
+- **No working directory:** `getcwd` fails on PS4, so every path (env.txt, logs, saves, shader cache) is absolute.
+- **`--wrap`ped kernel calls run during libc start-up** (the heap initializes there): nothing like `getenv` in
+  their fast path.
+- **OpenOrbis' PkgTool** fails around 2.2 GB ("Playgo Chunk hash file was not allocated enough space"): the Maker
+  ships PkgTool rebuilt from LibOrbisPkg with more room for the PlayGo hashes (`scripts/build-pkgtool.sh`).
 
-## Pour les mainteneurs : construire le SDK et le Maker (Linux ou WSL)
+### Link-time optimization (0.1.11)
+
+The runtime's C++ (outside `port/`, the game code and the libraries) is compiled to ThinLTO bitcode (the patched
+CMakeLists' `PS4_LTO` option). `scripts/make-sdk.py` turns it into a single native object, `sdk/obj/runtime-lto.o`,
+with `ld.lld -r --lto-O3`: cross-file optimization (inlining between `gx2/` and `gfx/vulkan/`, where the render
+thread spends its time) is done once when the SDK is built, and the Maker's link stays as fast as before. Checked:
+every malloc/free/calloc, pthread_create, clock_gettime and mmap call of the runtime still goes through the `--wrap`
+functions of `port/ps4_runtime.cpp`.
+
+## For maintainers: building the SDK and the Maker (Linux or WSL)
 
 ```
-scripts/build-sdk.sh ~/wwhd-ps4-build        # toolchains, SDL3/glslang/LZ4 pour PS4, runtime + eboot de test, sdk/
-maker/build-bundle.sh ~/wwhd-ps4-build       # le zip du Maker Windows (apt install mono-mcs mono-devel zip)
+scripts/build-sdk.sh ~/wwhd-ps4-build        # toolchains, SDL3/glslang/LZ4 for PS4, runtime + test eboot, sdk/
+maker/build-bundle.sh ~/wwhd-ps4-build       # the Windows Maker zip (apt install mono-mcs mono-devel zip)
 ```
 
-`toolchain/ps4.cmake` est une toolchain CMake autonome (LLVM 21 + OpenOrbis + sysroot libc++ 21 de SMW), utilisable
-depuis Linux ou Windows. Note : `--sysroot` et non `-isysroot` (sinon clang lit les en-têtes `/usr/include` de la
-machine), et `-z nodynamic-undefined-weak` (sinon `create-fself` refuse les fonctions d'initialisation `thread_local`).
+`toolchain/ps4.cmake` is a standalone CMake toolchain (LLVM 21 + OpenOrbis + SMW's libc++ 21 sysroot), usable from
+Linux or Windows. Note: `--sysroot`, not `-isysroot` (otherwise clang reads the host's `/usr/include` headers), and
+`-z nodynamic-undefined-weak` (otherwise `create-fself` rejects `thread_local` initialization functions).
 
-## Diagnostic sur la console
+Repository layout:
 
-- `/data/WWHD/boot-trace.log` : étapes du démarrage (modules, mémoire, swapchain, premiers flips).
-- `/data/WWHD/gpu/radv-ps4.log` (+ `gpu-hang.txt`, `gpu-fault.txt`) : le winsys RADV ; les chemins `/data/Crema/`
-  de `libamd_common.a` sont remplacés par `/data/WWHD//` (`scripts/patch-radv-paths.py`).
-- `/data/WWHD/crash.log` : registres, adresses de code sur la pile (adresses ELF : `llvm-symbolizer --obj=wwhd.elf
-  0x...`, `wwhd.elf` est dans le dossier de sortie du Maker), état de tous les threads.
-- `/data/WWHD/captures/wwhd.log` et `captures/crash-*.log` : le journal du jeu et son rapport de plantage (registres
-  invités, chaîne d'appels du jeu).
-- `env.txt` accepte tous les réglages `WWHD_*` du projet d'origine.
+| Path | Contents |
+| --- | --- |
+| `maker/` | the Windows Maker: `WWHD-PS4-Maker.cs` (window), `wwhd_ps4_maker.py` (all the work), `build-bundle.sh`, `sce_sys/` (original icons) |
+| `port/` | PS4 platform layer: memory, runtime wrappers, crash log, VideoOut WSI, sampler, kernel trace |
+| `patches/` | changes to Wind Waker HD Recomp and to SDL 3.4.18 |
+| `scripts/` | SDK build (`build-sdk.sh`, `make-sdk.py`), PkgTool rebuild, RADV path patch |
+| `toolchain/` | CMake toolchain files for the PS4 |
+| `docs/` | status, findings and performance notes (`STATUS.md` in English, `ETAT.md` in French) |
 
-## Contribuer
+## Diagnostics on the console
 
-Le plus utile maintenant : les performances (voir [`docs/ETAT.md`](docs/ETAT.md), « Pistes pour la suite »). Pour un
-retour de console, joindre `boot-trace.log`, `captures/wwhd.log` (avec `WWHD_PROFILE=1`), une photo de l'overlay
-(L3+R3) et, pour `samples.log` ou `hang.log`, le `wwhd-symbols.txt` du même build.
+- `/data/WWHD/boot-trace.log`: start-up steps (modules, memory, swapchain, first flips).
+- `/data/WWHD/gpu/radv-ps4.log` (+ `gpu-hang.txt`, `gpu-fault.txt`): the RADV winsys; the `/data/Crema/` paths of
+  `libamd_common.a` are replaced with `/data/WWHD//` (`scripts/patch-radv-paths.py`).
+- `/data/WWHD/crash.log`: registers, code addresses on the stack (ELF addresses: `llvm-symbolizer --obj=wwhd.elf
+  0x...`, `wwhd.elf` is in the Maker's output folder), state of every thread.
+- `/data/WWHD/captures/wwhd.log` and `captures/crash-*.log`: the game's log and its crash report (guest registers,
+  game call chain).
+- `env.txt` accepts every `WWHD_*` setting of the upstream project, plus the port's own (see `docs/STATUS.md`).
 
-## Licences et crédits
+## Contributing
 
-Le Maker contient aussi PkgTool reconstruit depuis LibOrbisPkg (maxton, LGPL-3.0), avec une seule modification (la place des empreintes PlayGo, comme BOTW et SMW) : `scripts/build-pkgtool.sh`.
+The most useful thing now is performance (see [`docs/STATUS.md`](docs/STATUS.md), "Where help is needed"). Issues
+and pull requests are welcome. For a console report, attach `boot-trace.log`, `captures/wwhd.log` (with
+`WWHD_PROFILE=1`), a photo of the performance overlay (L3+R3) and, for `samples.log` or `hang.log`, the
+`wwhd-symbols.txt` of the same build. Never attach game files, keys or a built `.pkg`.
 
-Le code de ce dépôt est sous licence MIT (voir `LICENSE`) ; les modifications du projet d'origine
-(`patches/wwhd-ps4.patch`) restent sous MPL-2.0 comme lui ; les nouveaux fichiers de SDL sont sous licence zlib. Merci à ZeldaWWHDRecomp (la recompilation et le runtime),
-iHaiDeeZ / ShiroKlein et BelmanteGu (SMW, SSBU : runtime PS4, WSI, SDK), Crema / DolphinPS4 (RADV sur GNM),
-OpenOrbis, LLVM, SDL, glslang, LZ4, zstd, Cemu. Projet de fans sans lien avec Nintendo ni Sony.
+## Licences and credits
+
+The code in this repository is under the MIT licence (see `LICENSE`); the changes to the upstream project
+(`patches/wwhd-ps4.patch`) stay under MPL-2.0 like it; the new SDL files are under the zlib licence. The Maker also
+contains PkgTool rebuilt from LibOrbisPkg (maxton, LGPL-3.0), with a single change (the room for the PlayGo hashes,
+as in BOTW and SMW): `scripts/build-pkgtool.sh`.
+
+Thanks to ZeldaWWHDRecomp (the recompilation and the runtime), iHaiDeeZ / ShiroKlein and BelmanteGu (SMW, SSBU: PS4
+runtime, WSI, SDK), Crema / DolphinPS4 (RADV on GNM), OpenOrbis, LLVM, SDL, glslang, LZ4, zstd, Cemu. A fan project,
+not affiliated with Nintendo or Sony.

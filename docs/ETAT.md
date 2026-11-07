@@ -1,5 +1,7 @@
 # État du portage et journal de bord
 
+*[English version](STATUS.md)*
+
 Ce document résume où en est le portage, ce qui a été trouvé et corrigé pendant les essais sur console, et ce qu'il
 reste à faire. Il est fait pour que d'autres puissent reprendre le travail sans refaire le chemin.
 
@@ -67,6 +69,10 @@ Ce qui a été essayé :
    traduit, PGO, fonctions chaudes du jeu (profileur `WWHD_PS4_PROFILE=1`).
 3. **Gains ciblés dans le moteur**, mesurés avec `WWHD_PROFILE=1` : constantes des shaders (15 ms), recherche du
    shader (8 ms), registres (10 ms).
+
+Un utilisateur de Reddit (Orpheuseyes) a dit avoir fait tourner WWHD de manière fluide sur PS4 avec le même
+recompilateur, en se promenant à Mercantile, avant d'effacer ses vidéos sans partager le projet : il y a sans doute
+plus à gagner que ce que les chiffres ci-dessus laissent penser.
 
 ## Collecter des mesures
 

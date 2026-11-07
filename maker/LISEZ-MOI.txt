@@ -1,6 +1,8 @@
 WWHD-PS4 Maker - The Legend of Zelda: The Wind Waker HD (Wii U) sur PS4 avec GoldHEN
 =====================================================================================
 
+(English version: README.txt)
+
 Ce programme fabrique, sur TON PC Windows, TON paquet PS4 (.pkg) du jeu, à partir de TA copie Wii U :
   - une image disque .wud ou .wux avec sa clé de disque (.key) et la clé commune Wii U (common.key, ou le keys.txt de Cemu),
   - ou une archive Cemu .wua (pas de clé),
@@ -18,6 +20,7 @@ Ce qu'il faut
     SHA-256, dans tools\. Si aucun .NET n'est installé, il récupère aussi le runtime .NET 8 portable de Microsoft
     (pour PkgTool), vérifié par le SHA-512 publié par Microsoft : dès l'étape 1, pas à la fin. Rien n'est
     installé dans Windows.
+  - La fenêtre est en français quand Windows est en français, en anglais sinon. Le journal est en anglais.
   - Si la connexion coupe pendant un téléchargement, le Maker attend qu'elle revienne (jusqu'à 45 min) et reprend
     le fichier là où il en était.
   - Une PS4 jailbreakée avec GoldHEN (testé pour : PS4 Slim CUH-2016A, firmware 10.01, GoldHEN 2.4b18.x).
@@ -47,7 +50,7 @@ Sur la PS4
 ----------
   - Tout ce que le jeu écrit est dans /data/WWHD : save\ (sauvegardes), user\ (réglages, manettes, caches de
     shaders), captures\wwhd.log (journal), boot-trace.log et crash.log (en cas de plantage), gpu\radv-ps4.log (le pilote graphique),
-    samples.log (où le temps passe, une minute après 45 s de jeu), env.txt (réglages).
+    samples.log (où le temps passe, avec WWHD_PS4_PROFILE=1), env.txt (réglages).
   - Manette DualShock 4 : Croix = A, Rond = B, Carré = X... ; pavé tactile (clic) = bouton « - » ;
     L3 + R3 ensemble = bouton Home (ouvre les Réglages du portage, où l'on peut aussi changer les boutons).
     Le gyroscope de la DS4 sert à la visée comme le GamePad.
@@ -72,6 +75,7 @@ Crédits
   SMW / SSBU (iHaiDeeZ / ShiroKlein, MIT) : le runtime PS4 (tas, journal de plantage, threads), la WSI VideoOut,
   le SDK PS4 (RADV de Mesa porté sur le GPU de la PS4 par Crema / DolphinPS4). OpenOrbis (toolchain, PkgTool),
   LLVM, SDL (avec les pilotes PS4 de ce projet), glslang, LZ4, zstd, Cemu (MPL-2.0). Licences : licenses\.
+  Code source : https://github.com/Nabiscan58/WWHD-Recomp-PS4-Port
   Projet de fans, sans lien avec Nintendo ni Sony.
 
 Mettre à jour le Maker (depuis la 0.1.1)
