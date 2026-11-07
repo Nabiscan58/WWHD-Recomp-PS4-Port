@@ -1,0 +1,35 @@
+{
+ "_comment": "Downloads the Maker gets once into tools/ (checked against these SHA-256). The PS4 runtime in sdk/ was built with exactly these.",
+ "llvm-windows": {
+  "version": "21.1.8",
+  "url": "https://github.com/llvm/llvm-project/releases/download/llvmorg-21.1.8/clang+llvm-21.1.8-x86_64-pc-windows-msvc.tar.xz",
+  "file": "clang+llvm-21.1.8-x86_64-pc-windows-msvc.tar.xz",
+  "sha256": "749d22f565fcd5718dbed06512572d0e5353b502c03fe1f7f17ee8b8aca21a47",
+  "keep": ["bin/clang.exe", "bin/ld.lld.exe", "bin/lld.exe", "bin/llvm-ar.exe", "bin/llvm-readelf.exe",
+           "bin/llvm-symbolizer.exe", "lib/clang/21/include/", "LICENSE.TXT"]
+ },
+ "llvm-linux": {
+  "version": "21.1.8",
+  "url": "https://github.com/llvm/llvm-project/releases/download/llvmorg-21.1.8/LLVM-21.1.8-Linux-X64.tar.xz",
+  "file": "LLVM-21.1.8-Linux-X64.tar.xz",
+  "sha256": "b3b7f2801d15d50736acea3c73982994d025b01c2f035b91ae3b49d1b575732b",
+  "keep": ["bin/clang", "bin/clang-21", "bin/ld.lld", "bin/lld", "bin/llvm-ar", "bin/llvm-readelf",
+           "bin/llvm-readobj", "bin/llvm-symbolizer", "lib/clang/21/include/", "LICENSE.TXT"]
+ },
+ "openorbis": {
+  "version": "0.5.2",
+  "url": "https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/releases/download/v0.5.2/v0.5.2.tar.gz",
+  "file": "OpenOrbis-PS4-Toolchain-v0.5.2.tar.gz",
+  "sha256": "92457ea5cb4b5fe80ca45a578f7899458fec5634143c7091a605cde823941334"
+ },
+ "smw-sdk": {
+  "version": "1",
+  "url": "https://github.com/iHaiDeeZ/SMW/releases/download/sdk-1/SMW-PS4-SDK-1.tar.xz",
+  "file": "SMW-PS4-SDK-1.tar.xz",
+  "sha256": "15e7927cb01fa877c04ef59beca33907cb7fe3d39b035e3e296661c3a0f2e026"
+ },
+ "dotnet": {
+  "_comment": "Windows only, when no .NET runtime is installed: Microsoft's portable runtime of this channel, checked against the SHA-512 of Microsoft's release list",
+  "channel": "8.0"
+ }
+}

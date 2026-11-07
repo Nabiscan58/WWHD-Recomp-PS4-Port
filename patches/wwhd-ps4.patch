@@ -1,0 +1,483 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 0a788c7..14231c2 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,5 +1,16 @@
+ cmake_minimum_required(VERSION 3.20)
+ project(wwhd_recomp C CXX)
++# PS4 homebrew (wwhd-ps4): configured with its toolchain/ps4.cmake, which sets PS4. WWHD_PS4_DIR: the wwhd-ps4 folder
++# (toolchain/ps4-app.cmake, port/). Vulkan through SDL's PS4 video driver and RADV linked in; no editor MCP server.
++if(PS4)
++  set(WWHD_PS4_DIR "" CACHE PATH "the wwhd-ps4 folder (toolchain/, port/)")
++  if(NOT EXISTS "${WWHD_PS4_DIR}/toolchain/ps4-app.cmake")
++    message(FATAL_ERROR "set WWHD_PS4_DIR to the wwhd-ps4 folder")
++  endif()
++  include(${WWHD_PS4_DIR}/toolchain/ps4-app.cmake)
++  set(WWHD_RENDERER VULKAN CACHE STRING "" FORCE)
++  set(WWHD_EDITOR_MCP OFF)
++endif()
+ # Renderers compiled into the executable:
+ #   BOTH   (macOS default) Metal and Vulkan (MoltenVK) in one app; Graphics > Renderer picks one at start
+ #   METAL  Metal only (macOS)
+@@ -223,6 +234,9 @@ elseif(ANDROID)
+   list(APPEND RUNTIME_SOURCES runtime/src/platform/https_android.cpp runtime/src/platform/android_code_mods.cpp runtime/src/platform/android_documents.cpp)
+ elseif(WIN32)
+   list(APPEND RUNTIME_SOURCES runtime/src/platform/https_win.cpp)
++elseif(PS4)
++  # the PS4 runtime (wwhd-ps4 port/, with host::download_https saying downloads are not available)
++  list(APPEND RUNTIME_SOURCES ${PS4_PORT_SOURCES})
+ elseif(UNIX AND NOT ANDROID)
+   # libcurl is loaded at run time (dlopen); only its headers are needed. They are copied on their own:
+   # their directory (e.g. /usr/include/x86_64-linux-gnu) also holds the system's glibc headers, which
+@@ -297,7 +311,26 @@ if(NOT TARGET ZLIB::ZLIB)
+   find_package(ZLIB REQUIRED)
+ endif()
+ find_package(Threads REQUIRED)
+-if(UNIX AND NOT APPLE AND NOT ANDROID)
++if(PS4)
++  target_include_directories(wwhd PRIVATE ${PS4_PORT_DIR})
++  # ThinLTO for the runtime's C++ (not port/, not the game code, not the libraries): the render thread's work is spread
++  # over many small functions across gx2/ and gfx/vulkan/ (wwhd-ps4 0.1.8 and 0.1.9 profiles), which inline across
++  # files this way. wwhd-ps4's scripts/make-sdk.py turns the bitcode into one native object (ld.lld -r), so a player's
++  # link stays as fast as before. PS4_LTO=OFF: plain objects.
++  option(PS4_LTO "ThinLTO for the PS4 runtime" ON)
++  if(PS4_LTO)
++    foreach(src IN LISTS RUNTIME_SOURCES GX2_SOURCES GFX_SOURCES)
++      if(src MATCHES "\\.cpp$" AND NOT src IN_LIST PS4_PORT_SOURCES)
++        set_property(SOURCE ${src} APPEND PROPERTY COMPILE_OPTIONS -flto=thin)
++      endif()
++    endforeach()
++  endif()
++  # the PS4 port: RADV linked in, the system libraries, and eboot.bin (<build>/wwhd_eboot/eboot.bin)
++  ps4_link_mesa(wwhd)
++  target_link_libraries(wwhd PRIVATE -lSceSysmodule -lSceSystemService -lSceUserService -lSceVideoOut -lSceAudioOut
++                        -lScePad -lSceNet)  # SceNet: the OpenOrbis libc's resolver refers to it (never called here)
++  ps4_add_eboot(wwhd)
++elseif(UNIX AND NOT APPLE AND NOT ANDROID)
+   target_include_directories(wwhd PRIVATE ${WWHD_CURL_INCLUDE})
+   target_link_libraries(wwhd PRIVATE ${CMAKE_DL_LIBS})
+ endif()
+diff --git a/runtime/include/ppc.h b/runtime/include/ppc.h
+index bf90400..bba5afc 100644
+--- a/runtime/include/ppc.h
++++ b/runtime/include/ppc.h
+@@ -12,7 +12,12 @@
+ extern "C" {
+ #endif
+ 
+-#if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
++#if defined(__ORBIS__)
++/* PS4 homebrew: 192 GiB, in the application's map area, below 256 GiB: RADV's PS4 winsys searches for its GPU address
++   windows from 256 GiB, where SMW and Crema have them (0.1.0 put the guest there and RADV hung at its first mapping,
++   moved up 4 GiB). Mapped lazily from direct memory (wwhd-ps4 port/ps4_memory.cpp) */
++#define PPC_MEM_BASE ((uint8_t*)0x3000000000ull)
++#elif defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
+ /* arm64 Linux kernels (Android, Raspberry Pi OS and other 4K-page configurations) often have a 39-bit
+    user address space (512 GiB), where 32 TiB is out of reach: stay well below it (64 GiB) */
+ #define PPC_MEM_BASE ((uint8_t*)0x1000000000ull)
+diff --git a/runtime/src/core.cpp b/runtime/src/core.cpp
+index 4d2c7e9..0608f77 100644
+--- a/runtime/src/core.cpp
++++ b/runtime/src/core.cpp
+@@ -1,3 +1,6 @@
++#if defined(__ORBIS__)
++#include "ps4_memory.h"  // wwhd-ps4 port/: lazily mapped guest memory
++#endif
+ #include "crash_memory.h"
+ // Guest memory, RPX loading, function dispatch, logging and HLE registry.
+ #ifdef __APPLE__
+@@ -106,6 +109,13 @@ void init() {
+     if (kr != KERN_SUCCESS) fatal("cannot reserve guest address space at %p (kr=%d)", PPC_MEM_BASE, kr);
+     // null page guard: catches guest null-pointer accesses
+     mprotect(PPC_MEM_BASE, 0x10000, PROT_NONE);
++#elif defined(__ORBIS__)
++    // PS4: an address space reservation; 64 KiB chunks of direct memory are mapped where the game first touches
++    // it (port/ps4_memory.cpp). The first 64 KiB are never committed: the null page guard.
++    if (!ps4mem_reserve((uint64_t)(uintptr_t)PPC_MEM_BASE, 0x100000000ull))
++        fatal("cannot reserve guest address space at %p", PPC_MEM_BASE);
++    ps4mem_commit((uint64_t)(uintptr_t)PPC_MEM_BASE + 0x10000, 0x100000000ull - 0x10000);
++    ps4mem_install_handler();  // after the crash handler (main.cpp), which it chains to
+ #elif defined(_WIN32)
+     void* p = VirtualAlloc(PPC_MEM_BASE, 0x100000000ull, MEM_RESERVE | MEM_COMMIT | MEM_WRITE_WATCH, PAGE_READWRITE);
+     if(p != PPC_MEM_BASE) fatal("cannot reserve guest address space (error=%lu)",GetLastError());
+diff --git a/runtime/src/crash_addr.cpp b/runtime/src/crash_addr.cpp
+index 8b887be..c6db7ee 100644
+--- a/runtime/src/crash_addr.cpp
++++ b/runtime/src/crash_addr.cpp
+@@ -20,6 +20,11 @@
+ 
+ #ifdef _WIN32
+ #include <windows.h>
++#elif defined(__ORBIS__)
++// PS4: no dladdr and no backtrace(); addresses are given as eboot ELF addresses (symbolize with llvm-symbolizer
++// --obj=wwhd.elf), the host stack is in crash.log of the port's own handler (wwhd-ps4 port/ps4_crashlog.cpp)
++#include <signal.h>
++extern "C" char __text_start[];  // OpenOrbis link.x: start of .text (ELF address 0)
+ #else
+ #include <dlfcn.h>
+ #include <execinfo.h>
+@@ -85,6 +90,11 @@ int describe(char* buf, size_t cap, uintptr_t addr, char* path, size_t path_cap)
+     const uintptr_t base = (uintptr_t)m;  // an HMODULE is the module's load address
+     int n = fit(snprintf(buf, cap, " in %s+0x%llX (base " CRASH_ADDR_FMT ")", base_name(full),
+                            (unsigned long long)(addr - base), (unsigned long long)base), cap);
++#elif defined(__ORBIS__)
++    const char* full = "eboot.bin";
++    const uintptr_t base = (uintptr_t)__text_start;
++    if (addr < base || addr - base > 0x40000000) return 0;  // not the eboot's code (a system module, data)
++    int n = fit(snprintf(buf, cap, " in eboot+0x%llx", (unsigned long long)(addr - base)), cap);
+ #else
+     Dl_info di{};
+     if (!dladdr((const void*)addr, &di) || !di.dli_fname) return 0;
+@@ -160,6 +170,19 @@ void host_backtrace(int fd, Out out, const void* context) {
+     for (USHORT i = 0; i < nf; i++) frame_line(fd, out, i, (uintptr_t)frames[i]);
+ }
+ 
++void prime() {}
++#elif defined(__ORBIS__)
++void host_backtrace(int fd, Out out, const void* context) {
++    static const char note[] = "  host backtrace: in crash.log (the code addresses on the stack, eboot ELF addresses)\n";
++    out(fd, note, sizeof note - 1);
++    if (uintptr_t pc = context_pc(context)) frame_line(fd, out, 0, pc);
++}
++
++uintptr_t context_pc(const void* ucontext) {
++    if (!ucontext) return 0;
++    return (uintptr_t)((const ucontext_t*)ucontext)->uc_mcontext.mc_rip;
++}
++
+ void prime() {}
+ #else
+ void host_backtrace(int fd, Out out, const void*) {
+diff --git a/runtime/src/gfx/vulkan/backend.cpp b/runtime/src/gfx/vulkan/backend.cpp
+index 1e6ee1e..a816b9c 100644
+--- a/runtime/src/gfx/vulkan/backend.cpp
++++ b/runtime/src/gfx/vulkan/backend.cpp
+@@ -766,6 +766,22 @@ void note_upload_block(const Buffer& buffer) {
+   const bool cached = (buffer.properties & readable) == readable && (first || R.uploadCached);
+   const auto mode = upload_reads_mode();
+   const bool direct = mode == UploadReads::Direct || (mode == UploadReads::Auto && cached);
++  if (first) {  // the device's memory types, to choose WWHD_VK_UPLOAD_CACHED knowingly
++    VkPhysicalDeviceMemoryProperties p;
++    vkGetPhysicalDeviceMemoryProperties(R.physicalDevice, &p);
++    std::string types;
++    for (uint32_t i = 0; i < p.memoryTypeCount; i++) {
++      const auto f = p.memoryTypes[i].propertyFlags;
++      char t[96];
++      snprintf(t, sizeof t, " %u:heap%u%s%s%s%s", i, p.memoryTypes[i].heapIndex,
++               f & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT ? ",local" : "",
++               f & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT ? ",visible" : "",
++               f & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT ? ",coherent" : "",
++               f & VK_MEMORY_PROPERTY_HOST_CACHED_BIT ? ",cached" : "");
++      types += t;
++    }
++    LOG("[vulkan] memory types:%s", types.c_str());
++  }
+   if (first || direct != R.uploadReadsDirect)
+     LOG("[vulkan] upload arena memory: %s; reuse checks %s (WWHD_VK_UPLOAD_READS=%s)",
+         cached ? "host-cached" : "not host-cached", direct ? "read the slices" : "keep CPU copies",
+@@ -796,10 +812,20 @@ static UploadSlice upload_slice(VkDeviceSize& size, VkDeviceSize& alignment, boo
+   }
+   if (!grow) return UploadSlice{};
+   if (handoff_trace::enabled()) handoff_trace::emit(handoff_trace::Lane::Producer, handoff_trace::Kind::UploadGrowBegin, 0, R.frame, size, R.uploadBlocks.size());
++  // WWHD_VK_UPLOAD_CACHED=1: prefer a host-cached (and coherent) memory type for the arena. On an APU
++  // whose cached type is snooped by the GPU (the PS4's "onion" memory, wwhd-ps4's default), the CPU's
++  // writes go through its caches instead of write-combining, and the reuse checks read the slices
++  // (note_upload_block) instead of keeping CPU copies; the GPU reads the arena more slowly, which a
++  // render thread bound by the CPU does not notice. Off by default (discrete GPUs want BAR/WC memory).
++  static const VkMemoryPropertyFlags uploadPreferred = [] {
++    const char* e = std::getenv("WWHD_VK_UPLOAD_CACHED");
++    return e && !std::strcmp(e, "1") ? VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_HOST_CACHED_BIT)
++                                     : VkMemoryPropertyFlags(0);
++  }();
+   auto buffer = create_buffer(std::max<VkDeviceSize>(32ull<<20,size),
+       VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
+       VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+-      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
++      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uploadPreferred);
+   if (handoff_trace::enabled()) handoff_trace::emit(handoff_trace::Lane::Producer, handoff_trace::Kind::UploadGrowEnd, 0, R.frame, buffer.size, R.uploadBlocks.size());
+   note_upload_block(buffer);
+   R.uploadBlocks.push_back({buffer,0});
+diff --git a/runtime/src/main.cpp b/runtime/src/main.cpp
+index f5e66c6..5760174 100644
+--- a/runtime/src/main.cpp
++++ b/runtime/src/main.cpp
+@@ -98,16 +98,29 @@ static void crash_log_raw(int fd, const char* s, size_t n) {
+ }
+ static void crash_out(int fd, const char* s, size_t n) { crash_context::redact(fd, {s,n}, crash_raw); }
+ static void crash_log_only(int fd, const char* s, size_t n) { crash_context::redact(fd, {s,n}, crash_log_raw); }
++#if defined(__ORBIS__)
++static struct sigaction g_crash_prev[32];  // the handlers before ours (port/ps4_crashlog.cpp's), by signal
++static const struct sigaction* crash_prev_handler(int sig) { return sig > 0 && sig < 32 ? &g_crash_prev[sig] : nullptr; }
++#endif
+ static void crash_handler(int sig, siginfo_t* si, void* uctx) {
+     uintptr_t a = (uintptr_t)si->si_addr;
+     uintptr_t base = (uintptr_t)PPC_MEM_BASE;
+     char path[96];
+     {
++#if defined(__ORBIS__)
++        // PS4: absolute paths (relative ones did not reach /data/WWHD: no wwhd.log, no env.txt in 0.1.5)
++        mkdir("/data/WWHD/captures", 0755);
++        time_t t = time(nullptr);
++        struct tm tmv;
++        localtime_r(&t, &tmv);
++        strftime(path, sizeof path, "/data/WWHD/captures/crash-%Y%m%d-%H%M%S.log", &tmv);
++#else
+         mkdir("captures", 0755);
+         time_t t = time(nullptr);
+         struct tm tmv;
+         localtime_r(&t, &tmv);
+         strftime(path, sizeof path, "captures/crash-%Y%m%d-%H%M%S.log", &tmv);
++#endif
+         g_crash_fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+     }
+     const int fd = g_crash_fd;
+@@ -172,10 +185,23 @@ static void crash_handler(int sig, siginfo_t* si, void* uctx) {
+         if (f) { trace_dump(f, 3000); fclose(f); if (write(2, "[trace] wrote trace_dump.txt\n", 29) < 0) {} }
+     }
+     input::stop_rumble_now();  // controllers keep their last motor level after the process (issue #35)
++#if defined(__ORBIS__)
++    // PS4: then the port's own report (crash.log: host registers, the code addresses on the stack, every thread),
++    // which ends the process (wwhd-ps4 port/ps4_crashlog.cpp)
++    if (const struct sigaction* prev = crash_prev_handler(sig); prev && (prev->sa_flags & SA_SIGINFO))
++        prev->sa_sigaction(sig, si, uctx);
++#endif
+     _exit(128 + sig);
+ }
+ 
+ static void install_crash_handler() {
++#if defined(__ORBIS__)
++    // PS4: every thread already has its signal stack (port/ps4_crashlog.cpp, port/ps4_runtime.cpp)
++    struct sigaction sa{};
++    sa.sa_sigaction = crash_handler;
++    sa.sa_flags = SA_SIGINFO | SA_ONSTACK;
++    for (int sig : {SIGSEGV, SIGBUS, SIGILL, SIGFPE, SIGABRT}) sigaction(sig, &sa, &g_crash_prev[sig]);
++#else
+     static char altstack[1 << 16];
+     stack_t ss{};
+     ss.ss_sp = altstack;
+@@ -189,6 +215,7 @@ static void install_crash_handler() {
+     sigaction(SIGILL, &sa, nullptr);
+     sigaction(SIGFPE, &sa, nullptr);
+     sigaction(SIGABRT, &sa, nullptr);
++#endif
+     crash_addr::prime();
+ }
+ 
+@@ -432,8 +459,22 @@ static void enter_data_folder(int argc, char** argv) {
+ 
+ extern "C" void synthetic_game_frame(Cpu*, PpcFunc);
+ 
++#if defined(__ORBIS__)
++// wwhd-ps4 port/ps4_platform.cpp: system modules, /data/WWHD (the working folder), env.txt, the PS4's defaults;
++// returns the game folder (/app0/game inside the package, or /data/WWHD/game)
++extern "C" const char* wwhd_ps4_startup(void);
++// The PS4's main thread has a small stack: port/ps4_platform.cpp's main() runs this on a thread with a big one
++// (the renderer's thread: shader translation and glslang recurse deeply)
++extern "C" int wwhd_main(int argc, char** argv);
++#define main wwhd_main
++#endif
+ int main(int argc, char** argv) {
++#if defined(__ORBIS__)
++    config::game_dir = wwhd_ps4_startup();  // instead of the desktop's data folder search
++    config::save_dir = "/data/WWHD/save";      // absolute: see port/ps4_platform.cpp (relative paths)
++#else
+     enter_data_folder(argc, argv);  // before anything reads a relative path
++#endif
+     std::string shader_prebuild_root;
+     // Android's isolated preparation activity and normal SDL startup share the
+     // same private user directory and verified native library identity.
+diff --git a/runtime/src/platform/host.h b/runtime/src/platform/host.h
+index 46d9a2c..2233579 100644
+--- a/runtime/src/platform/host.h
++++ b/runtime/src/platform/host.h
+@@ -56,6 +56,9 @@ template<class Fn> void with_autorelease_pool(Fn&& fn) {
+   (*static_cast<decltype(call)*>(context))();
+  }, &call);
+ }
++#if defined(__ORBIS__)
++extern "C" void ps4_sampler_register_thread(const char* name);
++#endif
+ inline thread_local std::string thread_label;
+ // Diagnostic only, and called first thing in thread entry functions where an
+ // escaping exception would terminate the process: never throws, and the OS name
+@@ -72,6 +75,8 @@ inline void set_thread_name(const char* name) noexcept {
+   for(;name[n] && n+1<sizeof text/sizeof *text;++n) text[n]=(unsigned char)name[n];
+   text[n]=0; f(GetCurrentThread(),text);
+  }
++#elif defined(__ORBIS__)
++ ps4_sampler_register_thread(name);  // PS4: the name in hang.log and samples.log (port/ps4_sampler.cpp)
+ #else
+  char text[16]; snprintf(text,sizeof text,"%s",name); // Linux limit: 15 bytes + NUL.
+  pthread_setname_np(pthread_self(),text);
+@@ -162,7 +167,9 @@ inline std::string executable_path() {
+ #endif
+ }
+ inline size_t page_size() {
+-#ifdef _WIN32
++#if defined(__ORBIS__)
++ return 0x4000; // PS4: 16 KiB pages (musl's getpagesize answers 4 KiB)
++#elif defined(_WIN32)
+  SYSTEM_INFO info;GetSystemInfo(&info);return info.dwPageSize;
+ #else
+  return (size_t)getpagesize();
+@@ -207,6 +214,8 @@ inline std::string exe_dir() {
+   if(_NSGetExecutablePath(buf,&n)==0){ char real[PATH_MAX]; p=realpath(buf,real)?real:buf; }
+ #elif defined(_WIN32)
+   p=executable_path();
++#elif defined(__ORBIS__)
++  p="/app0/eboot.bin"; // PS4: the application package
+ #else
+   char buf[4096]; ssize_t n=readlink("/proc/self/exe",buf,sizeof buf-1); if(n>0) p.assign(buf,(size_t)n);
+ #endif
+diff --git a/runtime/src/threads.cpp b/runtime/src/threads.cpp
+index 3e6195c..b9b0e1e 100644
+--- a/runtime/src/threads.cpp
++++ b/runtime/src/threads.cpp
+@@ -11,6 +11,9 @@
+ #include <mach/mach.h>
+ #endif
+ #include "platform/host.h"
++#if defined(__ORBIS__)
++#include "ps4_memory.h"  // wwhd-ps4 port/: lazily mapped host stacks
++#endif
+ #include "platform/sleep.h"
+ #ifdef __APPLE__
+ #include <pthread/qos.h>
+@@ -449,7 +452,13 @@ static const void* freeze_owner_tag(){return t_self?static_cast<const void*>(t_s
+ 
+ static void park_gate(HostThread* t) {
+     std::unique_lock<std::mutex> l(g_frz_m);
+-    while (g_frozen && t != g_frz_owner) g_frz_cv.wait(l);
++    while (g_frozen && t != g_frz_owner) {
++#if defined(__ORBIS__)
++        g_frz_cv.wait_for(l, std::chrono::milliseconds(25));  // sliced: see park_wait
++#else
++        g_frz_cv.wait(l);
++#endif
++    }
+     t->wst.store(kRunning);
+ }
+ 
+@@ -484,7 +493,15 @@ static bool park_wait(std::unique_lock<std::mutex>& lk, std::condition_variable&
+             } else if (simulation_deadline) {
+                 cv.wait_until(lk, *deadline, [&] { return pred() || game_clock::shifted(); });
+             } else cv.wait_until(lk, *deadline, pred);
+-        } else cv.wait(lk, pred);
++        } else {
++#if defined(__ORBIS__)
++            // PS4: a wake-up can be lost when a signal (the lazy guest-memory handler) lands in the wait, which the
++            // BOTW and TOTK PS4 ports saw as hangs; waits are sliced at 25 ms and the predicate re-checked.
++            while (!pred()) cv.wait_for(lk, std::chrono::milliseconds(25));
++#else
++            cv.wait(lk, pred);
++#endif
++        }
+         lk.unlock();
+         if (t) park_gate(t);
+         threads::block_end();
+@@ -531,9 +548,10 @@ __attribute__((noinline)) static void try_entry_park(HostThread* t, Cpu* c) {
+         if (!g_frozen || t == g_frz_owner) return;
+     }
+     if (mode == 2 && (!t->has_target || c->r[1] != t->tgt_r1 || c->lr != t->tgt_lr)) return;
+-#ifdef _WIN32
++#if defined(_WIN32) || defined(__ORBIS__)
+     // Entry parking requires host-frame symbol classification; Windows stack unwinding needs
+-    // a dedicated implementation. Ordinary waits remain saveable; never guess a safe frame.
++    // a dedicated implementation (the PS4 has no dladdr either). Ordinary waits remain saveable;
++    // never guess a safe frame.
+     return;
+     uintptr_t hi=0,lo=0;
+ #elif defined(__APPLE__)
+@@ -690,7 +708,14 @@ static void start_host_thread(HostThread* ht) {
+ #else
+     pthread_attr_t attr;
+     pthread_attr_init(&attr);
++#if defined(__ORBIS__)
++    // PS4: the 64 MiB comes from the lazy stack range (port/ps4_memory.cpp): mapped as it is used, so a thread
++    // costs the stack it touches, not 64 MiB of the small flexible memory pool
++    if (void* stack = ps4mem_stack(64 << 20)) pthread_attr_setstack(&attr, stack, 64 << 20);
++    else pthread_attr_setstacksize(&attr, 8 << 20);
++#else
+     pthread_attr_setstacksize(&attr, 64 << 20);  // deep guest call chains recurse on the host stack
++#endif
+     pthread_create(&ht->pt, &attr, thread_main, ht);
+     pthread_attr_destroy(&attr);
+ #endif
+@@ -1218,7 +1243,11 @@ static void alarm_thread() {
+     host::set_thread_name("alarm");
+     std::unique_lock<std::mutex> lk(g_alarm_mutex);
+     for (;;) {
++#if defined(__ORBIS__)
++        if (g_alarm_queue.empty()) { g_alarm_cv.wait_for(lk, std::chrono::milliseconds(25)); continue; }
++#else
+         if (g_alarm_queue.empty()) { g_alarm_cv.wait(lk); continue; }
++#endif
+         auto it = g_alarm_queue.begin();
+         // Cancelled/replaced deadlines are not pending guest waits. Do not keep
+         // the scheduler polling until a stale deadline that can never fire.
+diff --git a/runtime/src/true60_test.cpp b/runtime/src/true60_test.cpp
+index 2718b98..3d67bdf 100644
+--- a/runtime/src/true60_test.cpp
++++ b/runtime/src/true60_test.cpp
+@@ -2,11 +2,18 @@
+ #include <chrono>
+ #include <atomic>
+ #ifndef _WIN32  // the boot-crash debug aids below are POSIX-only (macOS, Linux)
++#if !defined(__ORBIS__)
+ #include <execinfo.h>
++#endif
+ #include <pthread.h>
+ #include <signal.h>
+ #include <sys/mman.h>
+ #include <unistd.h>
++#if defined(__ORBIS__)  // PS4: no backtrace() and no thread names to read; the write-fault aid logs less there
++static inline int backtrace(void**, int) { return 0; }
++static inline void backtrace_symbols_fd(void* const*, int, int) {}
++static inline int pthread_getname_np(pthread_t, char* name, size_t size) { if (size) name[0] = 0; return 0; }
++#endif
+ #endif
+ // Test aids for the true 60 fps conversions (debug only; nothing here runs unless its env var is set).
+ //
+diff --git a/runtime/src/write_watch.cpp b/runtime/src/write_watch.cpp
+index 201e5f4..3e2c047 100644
+--- a/runtime/src/write_watch.cpp
++++ b/runtime/src/write_watch.cpp
+@@ -1,5 +1,6 @@
+ // Exact CPU-write tracking for guest memory (see write_watch.h for the protocol and its race argument).
+ #include "write_watch.h"
++#include "ppc.h"
+ 
+ #include <algorithm>
+ #include <atomic>
+@@ -8,6 +9,9 @@
+ #include <vector>
+ 
+ #include "platform/host.h"
++#if defined(__ORBIS__)
++#include "ps4_memory.h"  // wwhd-ps4 port/: guest memory is mapped on first touch
++#endif
+ 
+ #ifdef _WIN32
+ #include <windows.h>
+@@ -144,6 +148,10 @@ bool init(uint8_t* base, uint64_t size) {
+ bool active() { return g_active.load(std::memory_order_acquire); }
+ 
+ uint64_t arm(uint32_t addr, uint32_t size) {
++#if defined(__ORBIS__)
++    // PS4: a page the game never touched is not mapped yet, and an unmapped page cannot be protected
++    if (g_active.load(std::memory_order_acquire) && size) ps4mem_prefault(g_base + addr, size);
++#endif
+     uint64_t t0 = g_clock.load(std::memory_order_acquire), first, last;
+     if (!page_range(addr, size, first, last)) return t0;
+     // fast path: every page is still protected (nothing written since some earlier arm)
+@@ -189,6 +197,10 @@ bool written_since(uint32_t addr, uint32_t size, uint64_t stamp) {
+ }
+ 
+ void host_write_begin(uint32_t addr, uint32_t size) {
++#if defined(__ORBIS__)
++    // PS4: the kernel cannot fault guest memory in on our behalf (read() fails with EFAULT on an unmapped chunk)
++    if (size) ps4mem_prefault(PPC_MEM_BASE + addr, size);
++#endif
+     uint64_t first, last;
+     if (!page_range(addr, size, first, last)) return;
+     std::lock_guard<std::mutex> lk(g_m);

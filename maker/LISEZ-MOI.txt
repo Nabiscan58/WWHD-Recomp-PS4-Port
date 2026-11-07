@@ -1,0 +1,83 @@
+WWHD-PS4 Maker - The Legend of Zelda: The Wind Waker HD (Wii U) sur PS4 avec GoldHEN
+=====================================================================================
+
+Ce programme fabrique, sur TON PC Windows, TON paquet PS4 (.pkg) du jeu, à partir de TA copie Wii U :
+  - une image disque .wud ou .wux avec sa clé de disque (.key) et la clé commune Wii U (common.key, ou le keys.txt de Cemu),
+  - ou une archive Cemu .wua (pas de clé),
+  - ou un dossier extrait (avec code\, content\, meta\ : dumpling, Cemu, ou le dossier data\game du portage PC).
+Version 0 du jeu (USA 00050000-10143500 ou Europe 00050000-10143600), sans la mise à jour.
+
+Le Maker ne contient ni jeu, ni code du jeu, ni clé. Le paquet qu'il fabrique contient le jeu (son code recompilé
+et, par défaut, ses fichiers) : il est à toi seul, ne le partage jamais.
+
+Ce qu'il faut
+-------------
+  - Windows 10 ou 11 64 bits, 8 Go de RAM (16 conseillés), environ 15 Go libres.
+  - Une connexion Internet au premier lancement : le Maker télécharge une fois LLVM 21 (~940 Mo), la toolchain
+    OpenOrbis (~160 Mo) et le SDK PS4 de SMW (~15 Mo, le pilote Vulkan RADV pour le GPU de la PS4), vérifiés par
+    SHA-256, dans tools\. Si aucun .NET n'est installé, il récupère aussi le runtime .NET 8 portable de Microsoft
+    (pour PkgTool), vérifié par le SHA-512 publié par Microsoft : dès l'étape 1, pas à la fin. Rien n'est
+    installé dans Windows.
+  - Si la connexion coupe pendant un téléchargement, le Maker attend qu'elle revienne (jusqu'à 45 min) et reprend
+    le fichier là où il en était.
+  - Une PS4 jailbreakée avec GoldHEN (testé pour : PS4 Slim CUH-2016A, firmware 10.01, GoldHEN 2.4b18.x).
+
+Utilisation
+-----------
+  1. Décompresse le zip où tu veux (un chemin court, par ex. C:\WWHD-PS4).
+  2. Lance WWHD-PS4-Maker.exe (SmartScreen : « Informations complémentaires » puis « Exécuter quand même »).
+  3. Choisis ton jeu, les clés si c'est une image disque (une clé .key à côté de l'image et un common.key ou
+     keys.txt dans le même dossier sont trouvés tout seuls), et le dossier de sortie.
+  4. Option : l'adresse FTP de la PS4 (GoldHEN : Paramètres > Serveur FTP, port 2121), par ex. 192.168.1.20:2121.
+  5. Démarrer. Étapes : outils, fichiers du jeu, traduction du code PowerPC en C (quelques minutes), compilation
+     pour le processeur Jaguar de la PS4 (la plus longue : 15 à 60 min selon le PC), paquet, envoi FTP.
+     Les étapes sans pourcentage (traduction, édition des liens, PkgTool) affichent une barre animée et le temps
+     écoulé : ce n'est pas figé.
+     Si le Maker s'arrête (erreur, coupure, fermeture), relance Démarrer avec le même dossier de sortie : le jeu
+     extrait, le code traduit et les fichiers déjà compilés sont repris. « Tout recommencer » efface ce travail.
+  6. Sur la PS4 : GoldHEN > Package Installer, installe WWHD-PS4-<version>.pkg (dans /data/pkg si envoyé par FTP, ou
+     depuis une clé USB exFAT), puis lance « The Wind Waker HD » depuis l'écran d'accueil.
+
+Icône et image de lancement
+---------------------------
+  Le dossier perso\ du Maker, s'il contient icon0.png (512x512, l'icône) et pic1.png (1920x1080, l'image
+  affichée au lancement), remplace les images du Maker dans le paquet.
+
+Sur la PS4
+----------
+  - Tout ce que le jeu écrit est dans /data/WWHD : save\ (sauvegardes), user\ (réglages, manettes, caches de
+    shaders), captures\wwhd.log (journal), boot-trace.log et crash.log (en cas de plantage), gpu\radv-ps4.log (le pilote graphique),
+    samples.log (où le temps passe, une minute après 45 s de jeu), env.txt (réglages).
+  - Manette DualShock 4 : Croix = A, Rond = B, Carré = X... ; pavé tactile (clic) = bouton « - » ;
+    L3 + R3 ensemble = bouton Home (ouvre les Réglages du portage, où l'on peut aussi changer les boutons).
+    Le gyroscope de la DS4 sert à la visée comme le GamePad.
+  - L'écran du GamePad est dessiné dans l'image de la TV (incrustation, réglable dans Réglages > Écran).
+
+État et limites (à lire)
+------------------------
+  Version de test. Jusqu'à la 0.1.4, le paquet se présentait comme une application (paramètres de RetroArch,
+  prévus pour OpenGL) et le pilote graphique Vulkan restait bloqué à son démarrage, console figée. Depuis la
+  0.1.5, il se présente comme un jeu, comme SMW, SSBU, BOTW et TOTK : DÉSINSTALLE l'ancien paquet avant
+  d'installer le nouveau. Si le dossier /data/WWHD n'existe pas, crée-le par FTP (l'application n'a pas
+  toujours le droit de le créer elle-même). Si ça bloque, attends 2 minutes avant d'éteindre la console,
+  récupère par FTP /data/WWHD (sauf game\ et save\) : boot-trace.log, hang.log, gpu\radv-ps4.log,
+  captures\wwhd.log, et envoie-les avec wwhd-symbols.txt du dossier de sortie.
+  Le processeur de la PS4 (Jaguar 1,6 GHz) est bien plus lent que celui d'un PC : vise les 30 images/s du jeu
+  d'origine ; le mode 60 i/s (WWHD_INTERP=1 dans env.txt) sera sans doute trop lourd sur une PS4 Slim.
+  Les fonctions en ligne du portage PC (catalogue de mods, téléchargements) ne sont pas disponibles sur PS4.
+
+Crédits
+-------
+  Wind Waker HD Recomp (ZeldaWWHDRecomp, MPL-2.0) : la recompilation, le runtime, GX2 sur Vulkan.
+  SMW / SSBU (iHaiDeeZ / ShiroKlein, MIT) : le runtime PS4 (tas, journal de plantage, threads), la WSI VideoOut,
+  le SDK PS4 (RADV de Mesa porté sur le GPU de la PS4 par Crema / DolphinPS4). OpenOrbis (toolchain, PkgTool),
+  LLVM, SDL (avec les pilotes PS4 de ce projet), glslang, LZ4, zstd, Cemu (MPL-2.0). Licences : licenses\.
+  Projet de fans, sans lien avec Nintendo ni Sony.
+
+Mettre à jour le Maker (depuis la 0.1.1)
+----------------------------------------
+  Copie TOUT le contenu du nouveau zip (dossier WWHD-PS4-Maker-<version>) dans ton dossier du Maker, en
+  remplaçant les fichiers : ton tools\ garde LLVM, OpenOrbis, le SDK et .NET. Lance Démarrer avec le même dossier
+  de sortie, sans cocher « Tout recommencer » : depuis la 0.1.1, le jeu extrait, le code traduit et les
+  fichiers compilés sont repris, seuls l'édition des liens et le paquet sont refaits (quelques minutes). Le
+  paquet final doit s'appeler WWHD-PS4-<version>.pkg. Désinstalle l'ancien paquet avant d'installer le nouveau.
