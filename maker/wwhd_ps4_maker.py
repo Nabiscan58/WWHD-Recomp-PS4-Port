@@ -412,6 +412,23 @@ def upstream_setup():
     return ws
 
 
+def unlabeled_archive_title(ws, src, info, work):
+    """A .wua whose game folder is 0000000000000000_v0 (no title id): reads its meta/meta.xml.
+    Returns (folder, title id) for a supported build, else None."""
+    for t in info.get("titles", []):
+        if t["id"].strip("0") or t["version"] != 0:
+            continue
+        probe = os.path.join(work, "game.probe")
+        shutil.rmtree(probe, ignore_errors=True)
+        p = subprocess.run([ws.extractor(), "--title", t["folder"], "--only", "meta/meta.xml", "extract", src, probe],
+                           stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        tid = ws.game_folder_title(probe) if p.returncode == 0 else None
+        shutil.rmtree(probe, ignore_errors=True)
+        if tid in ws.SUPPORTED_BUILDS:
+            return t["folder"], tid
+    return None
+
+
 def prepare_game(ws, args, work):
     """The game folder (code/, content/, meta/) to build from: extracted into <work>/game, or the given folder."""
     src = os.path.abspath(args.game)
@@ -452,7 +469,19 @@ def prepare_game(ws, args, work):
         problem, err, info = ws.archive_info(src)
         if problem and problem != "wrong_title":
             raise MakerError("cannot read the Cemu archive: %s" % err)
-        title, notes = ws.archive_choice(info)
+        try:
+            title, notes = ws.archive_choice(info)
+        except Exception as e:  # upstream's SetupError: no supported title id in the folder names
+            found = unlabeled_archive_title(ws, src, info, work) if type(e).__name__ == "SetupError" else None
+            if not found:
+                raise
+            title, real_tid = found
+            problem, err, info = ws.archive_info(src, title)
+            if problem:
+                raise MakerError("cannot read the Cemu archive: %s" % err)
+            title, notes = ws.archive_choice(info)
+            notes.insert(0, "game folder %s has no title id; meta.xml says %s" % (title, real_tid))
+            info["title_id"] = real_tid
         for n in notes:
             say("  " + n)
         say("  %s from the archive (no keys needed)" % ws.title_desc(info["title_id"], int(info["version"])))
